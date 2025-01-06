@@ -94,7 +94,20 @@ def apply_final_devoicing_word(word):
 def word_to_string(word):
     return ''.join([''.join(syllable) for syllable in word])
 
-def make_dataset(n_words = 100_000, only_unique_words = True):
+def make_dataset(n_word_types = 1000, n_tokens = 100):
+    X,y = make_simple_dataset(n_word_types, True)
+    word_types = [x.split('#')[0] for x in X]
+    X_output, y_output = [], []
+    for line, answer in zip(X,y):
+        word, stem = line.split('#')
+        other_words = random.sample(word_types, n_tokens)
+        for other_word in other_words:
+            X_output.append(word + other_word + '#'+stem + other_word)
+            y_output.append(answer)
+    return X_output, y_output, word_types
+
+
+def make_simple_dataset(n_words = 100_000, only_unique_words = True):
     X,y = [],[]
     while len(X) < n_words:
         word, stem = make_word_and_stem(enforce_stem_not_equal_to_word = True)
@@ -108,9 +121,34 @@ def make_dataset(n_words = 100_000, only_unique_words = True):
         y.append(y_item)
     return X,y
 
-def save_dataset(X,y, filename = 'final_devoicing.json'):
-    d = {'X': X, 'y': y, 'phonemes': phoneme_dict()}
+def save_dataset(X,y, word_types = None, 
+    filename = '../final_devoicing_word_types_1000.json'):
+    d = {'X': X, 'y': y, 'phonemes': phoneme_dict(), 'word_types': word_types}
     with open(filename, 'w') as f:
         json.dump(d, f)
 
 
+def load_dataset(filename = 'final_devoicing.json'):
+    with open(filename) as f:
+        d = json.load(f)
+    return d
+
+def apply_devoicing(dataset = None):
+    if dataset is None:
+        dataset = load_dataset()
+    X,y = dataset['X'], dataset['y']
+    applied = []
+    for x, y_item in zip(X,y):
+        if y_item == 1:
+            word, stem = x.split('#')
+            print(stem)
+            stem = apply_final_devoicing_syllable(list(stem))
+            stem = ''.join(stem)
+            print(stem)
+            print('-')
+            applied.append(word+'#'+stem)
+    X = X + applied
+    y = y + [0]*len(applied)
+    data = {'X' : X, 'y' : y, 'phonemes' : dataset['phonemes']}
+    return data
+    
